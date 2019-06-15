@@ -52,12 +52,12 @@ open class ExpressTabView: UIView {
         // init views
         tabScrollView = UIScrollView()
         contentScrollView = UIScrollView()
-        // TODO: arrowView的な扱いをどうするか考える
+        // TODO1: arrowView的な扱いをどうするか考える
 //        arrowView = ArrowView(frame: CGRect(x: 0, y: 0, width: 30, height: 10))
         
         self.addSubview(tabScrollView)
         self.addSubview(contentScrollView)
-        // TODO: arrowView的な扱いをどうするか考える
+        // TODO1: arrowView的な扱いをどうするか考える
 //        self.addSubview(arrowView)
 
         tabScrollView.isPagingEnabled = false
@@ -78,6 +78,24 @@ open class ExpressTabView: UIView {
         // set custom attrs
         tabScrollView.backgroundColor = tabLayout.backgroundColor
         contentScrollView.backgroundColor = contentLayout.backgroundColor
+        // TODO1: 扱いどうするか考える
+//        arrowView.arrorBackgroundColor = self.tabSectionBackgroundColor
+//        arrowView.isHidden = !arrowIndicator
+        
+        // first time setup pages
+        build()
+
+        // async necessarily
+        DispatchQueue.main.async {
+            // first time set defaule pageIndex
+            // TODO3: 開始状態の調査
+            // TODO3: pageIndexの正体調査
+//            self.initWithPageIndex(self.pageIndex ?? self.defaultPage)
+//            self.isStarted = true
+            
+            // load pages
+            self.loadContents()
+        }
     }
 
     // MARK: - Configure
@@ -90,12 +108,12 @@ open class ExpressTabView: UIView {
     // MARK: Build
 
     func build() {
-        cache.count = tabViews().count
+        cache.pages = tabViews().count
         cache.removeAll()
         (tabScrollView.subviews + contentScrollView.subviews).forEach {
             $0.removeFromSuperview()
         }
-        guard cache.count > 0 else {
+        guard cache.pages > 0 else {
             return
         }
         let source = buildTabContent()
@@ -103,13 +121,13 @@ open class ExpressTabView: UIView {
         tabLayout.height = source.height
         let contentHeight = frame.height - tabLayout.height
         configureTabViews { [weak self] barContentWidth in
-            self?.configureScrollViews(with:
-                .init(width: barContentWidth, height: contentHeight))
+            self?.configureScrollViews(with: .init(width: barContentWidth,
+                                                   height: contentHeight))
         }
     }
 
     func buildTabContent() -> (source: [Int : UIView], height: CGFloat) {
-        return (0 ..< cache.count)
+        return (0 ..< cache.pages)
             .reduce(into: ([Int : UIView](), CGFloat(0)), { [weak self] source, idx in
                 guard let strongSelf = self else {
                     return
@@ -123,7 +141,7 @@ open class ExpressTabView: UIView {
 
     func configureTabViews(completion: (CGFloat) -> Void) {
         var reducedTabWidth: CGFloat = 0
-        for idx in 0 ..< cache.count {
+        for idx in 0 ..< cache.pages {
             if let tabView = cache.source[idx] {
                 tabView.frame = CGRect(
                     origin: CGPoint(
@@ -134,7 +152,7 @@ open class ExpressTabView: UIView {
                 // bind event
                 tabView.tag = idx
                 tabView.isUserInteractionEnabled = true
-                // TODO: ExpressTabView専用のメソッドを指定するように置換する
+                // TODO3: ExpressTabView専用のメソッドを指定するように置換する
 //                tabView.addGestureRecognizer(UITapGestureRecognizer(
 //                    target: self, action: #selector(ACTabScrollView.tabViewDidClick(_:))))
                 tabScrollView.addSubview(tabView)
@@ -147,7 +165,7 @@ open class ExpressTabView: UIView {
     func configureScrollViews(with contentSize: CGSize) {
         // reset the fixed size of tab section
         tabScrollView.frame = CGRect(x: 0, y: 0, width: frame.width, height: tabLayout.height)
-        // TODO: 正しいメソッドを紐づける
+        // TODO3: 正しいメソッドを紐づける
 //        tabScrollView.addGestureRecognizer(UITapGestureRecognizer(
 //            target: self, action: #selector(ACTabScrollView.tabSectionScrollViewDidClick(_:))))
         tabScrollView.contentInset = UIEdgeInsets(
@@ -159,7 +177,7 @@ open class ExpressTabView: UIView {
         // reset the fixed size of content section
         contentScrollView.frame = CGRect(x: 0, y: tabLayout.height, width: frame.width, height: contentSize.height)
 
-        // TODO: 扱いをどうするか考える
+        // TODO1: 扱いをどうするか考える
         // reset the origin of arrow view
 //        arrowView.frame.origin = CGPoint(x: (self.frame.width - arrowView.frame.width) / 2, y: tabSectionHeight)
     }
@@ -171,20 +189,68 @@ open class ExpressTabView: UIView {
             return
         }
         let offset = 1
-//        let leftBoundIndex =
+
         // WIP:
+//        let leftBoundIndex = pageIndex - offset > 0 ? pageIndex - offset : 0
+//        let rightBoundIndex = pageIndex + offset < cacheCount ? pageIndex + offset : cacheCount - 1
+//
+//        var currentContentWidth: CGFloat = 0.0
+//        for i in 0 ..< cacheCount {
+//            let width = frame.width
+//            if (i >= leftBoundIndex && i <= rightBoundIndex) {
+//                let pageFrame = CGRect(
+//                    x: currentContentWidth,
+//                    y: 0,
+//                    width: width,
+//                    height: contentScrollView.frame.size.height)
+//                insertPageAtIndex(i, frame: pageFrame)
+//            }
+//            currentContentWidth += width
+//        }
+//        contentScrollView.contentSize = CGSize(width: currentContentWidth, height: contentScrollView.frame.height)
+        
+        // remove older caches
+        while (cache.sourceQueue.count > cache.preloadLimit()) {
+            if let (_, view) = cache.sourceQueue.popFirst() {
+                view.removeFromSuperview()
+            }
+        }
     }
 }
 
-// MARK: - ExpressTabView.Cache
+// MARK: - ExpressTabView Extensions
 
 extension ExpressTabView {
 
+    // MARK: Cache
+
     struct Cache {
-        var count = 0
         var source = [Int: UIView]()
         var sourceQueue = CacheQueue<Int, UIView>()
-        var preloadFrames = 3
+        var pages = 0
+        var preloadPages = 3
+
+        func preloadLimit() -> Int {
+            let minimum = 3
+            guard preloadPages > minimum else {
+                return minimum
+            }
+            guard preloadPages > 1 else {
+                return pages
+            }
+            return preloadPages
+        }
+    }
+
+    // MARK: Layout
+    
+    struct TabLayout {
+        var height: CGFloat = 0
+        var backgroundColor: UIColor = .white
+    }
+    
+    struct ContentLayout {
+        var backgroundColor: UIColor = .white
     }
 }
 
@@ -196,13 +262,11 @@ extension ExpressTabView.Cache {
     }
 }
 
-// MARK: - ExpressTabView.Layout
+extension ExpressTabView: UIScrollViewDelegate {
 
-extension ExpressTabView {
     
-    struct TabLayout {
-        var height: CGFloat = 0
-        var backgroundColor: UIColor = .white
+}
+
     }
     
     struct ContentLayout {
