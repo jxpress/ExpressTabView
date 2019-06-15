@@ -13,6 +13,8 @@
 		CE2509C222B4A3800069A1EB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CE2509C122B4A3800069A1EB /* Assets.xcassets */; };
 		CE2509C522B4A3800069A1EB /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = CE2509C322B4A3800069A1EB /* LaunchScreen.storyboard */; };
 		CE2509D022B4A3800069A1EB /* ExpressTabViewDemoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE2509CF22B4A3800069A1EB /* ExpressTabViewDemoTests.swift */; };
+		CE2509DB22B4A4120069A1EB /* ExpressTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE2509DA22B4A4120069A1EB /* ExpressTabView.swift */; };
+		CE2509DD22B4A85B0069A1EB /* CacheQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE2509DC22B4A85B0069A1EB /* CacheQueue.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -36,6 +38,8 @@
 		CE2509CB22B4A3800069A1EB /* ExpressTabViewDemoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ExpressTabViewDemoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE2509CF22B4A3800069A1EB /* ExpressTabViewDemoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpressTabViewDemoTests.swift; sourceTree = "<group>"; };
 		CE2509D122B4A3800069A1EB /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		CE2509DA22B4A4120069A1EB /* ExpressTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpressTabView.swift; sourceTree = "<group>"; };
+		CE2509DC22B4A85B0069A1EB /* CacheQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheQueue.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -59,6 +63,7 @@
 		CE2509AE22B4A37E0069A1EB = {
 			isa = PBXGroup;
 			children = (
+				CE87B9E322B4A3E60033CB68 /* Sources */,
 				CE2509B922B4A37E0069A1EB /* ExpressTabViewDemo */,
 				CE2509CE22B4A3800069A1EB /* ExpressTabViewDemoTests */,
 				CE2509B822B4A37E0069A1EB /* Products */,
@@ -94,6 +99,15 @@
 				CE2509D122B4A3800069A1EB /* Info.plist */,
 			);
 			path = ExpressTabViewDemoTests;
+			sourceTree = "<group>";
+		};
+		CE87B9E322B4A3E60033CB68 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				CE2509DA22B4A4120069A1EB /* ExpressTabView.swift */,
+				CE2509DC22B4A85B0069A1EB /* CacheQueue.swift */,
+			);
+			path = Sources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -197,8 +211,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CE2509DD22B4A85B0069A1EB /* CacheQueue.swift in Sources */,
 				CE2509BD22B4A37E0069A1EB /* ViewController.swift in Sources */,
 				CE2509BB22B4A37E0069A1EB /* AppDelegate.swift in Sources */,
+				CE2509DB22B4A4120069A1EB /* ExpressTabView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
