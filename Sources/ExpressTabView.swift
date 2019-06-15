@@ -20,7 +20,8 @@ open class ExpressTabView: UIView {
     
     // MARK: Configuration
     
-    fileprivate var cache = Cache()
+    fileprivate var pageCache = PageCache()
+    fileprivate var loadCache = LoadCache()
     fileprivate var tabLayout = TabLayout()
     fileprivate var contentLayout = ContentLayout()
     open var tabViews: (() -> [UIView]) = { [] }
@@ -108,16 +109,16 @@ open class ExpressTabView: UIView {
     // MARK: Build
 
     func build() {
-        cache.pages = tabViews().count
-        cache.removeAll()
+        loadCache.maxLimit = tabViews().count
+        pageCache.removeAll()
         (tabScrollView.subviews + contentScrollView.subviews).forEach {
             $0.removeFromSuperview()
         }
-        guard cache.pages > 0 else {
+        guard loadCache.maxLimit > 0 else {
             return
         }
         let source = buildTabContent()
-        cache.source = source.source
+        pageCache.source = source.source
         tabLayout.height = source.height
         let contentHeight = frame.height - tabLayout.height
         configureTabViews { [weak self] barContentWidth in
@@ -127,7 +128,7 @@ open class ExpressTabView: UIView {
     }
 
     func buildTabContent() -> (source: [Int : UIView], height: CGFloat) {
-        return (0 ..< cache.pages)
+        return (0 ..< loadCache.maxLimit)
             .reduce(into: ([Int : UIView](), CGFloat(0)), { [weak self] source, idx in
                 guard let strongSelf = self else {
                     return
@@ -141,8 +142,8 @@ open class ExpressTabView: UIView {
 
     func configureTabViews(completion: (CGFloat) -> Void) {
         var reducedTabWidth: CGFloat = 0
-        for idx in 0 ..< cache.pages {
-            if let tabView = cache.source[idx] {
+        for idx in 0 ..< loadCache.maxLimit {
+            if let tabView = pageCache.source[idx] {
                 tabView.frame = CGRect(
                     origin: CGPoint(
                         x: reducedTabWidth,
@@ -210,8 +211,8 @@ open class ExpressTabView: UIView {
 //        contentScrollView.contentSize = CGSize(width: currentContentWidth, height: contentScrollView.frame.height)
         
         // remove older caches
-        while (cache.sourceQueue.count > cache.preloadLimit()) {
-            if let (_, view) = cache.sourceQueue.popFirst() {
+        while (pageCache.sourceQueue.count > loadCache.preloadLimit()) {
+            if let (_, view) = pageCache.sourceQueue.popFirst() {
                 view.removeFromSuperview()
             }
         }
@@ -224,21 +225,28 @@ extension ExpressTabView {
 
     // MARK: Cache
 
-    struct Cache {
+    struct PageCache {
         var source = [Int: UIView]()
         var sourceQueue = CacheQueue<Int, UIView>()
-        var pages = 0
-        var preloadPages = 3
+    }
+    
+    struct LoadCache {
+
+        static var minimum: Int {
+            return 3
+        }
+
+        var maxLimit = 0
+        var preload = LoadCache.minimum
 
         func preloadLimit() -> Int {
-            let minimum = 3
-            guard preloadPages > minimum else {
-                return minimum
+            guard preload > LoadCache.minimum else {
+                return LoadCache.minimum
             }
-            guard preloadPages > 1 else {
-                return pages
+            guard preload > 1 else {
+                return maxLimit
             }
-            return preloadPages
+            return preload
         }
     }
 
@@ -254,7 +262,7 @@ extension ExpressTabView {
     }
 }
 
-extension ExpressTabView.Cache {
+extension ExpressTabView.PageCache {
 
     mutating func removeAll() {
         source.removeAll()
