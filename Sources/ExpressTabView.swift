@@ -17,30 +17,39 @@ open class ExpressTabView: UIView {
     
     fileprivate var tabScrollView: UIScrollView!
     fileprivate var contentScrollView: UIScrollView!
+
+    // MARK: State
+
     fileprivate var activedScrollView: UIScrollView?
     fileprivate var isStarted = false
+    fileprivate var hasChangePageCompletion = false
+    fileprivate var changePageCompletion: (() -> Void)?
 
-    // MARK: Configuration
+    // MARK: Cache
     
     fileprivate var pageCache = PageCache()
     fileprivate var loadCache = LoadCache()
     fileprivate var indexCache = IndexCache()
-    fileprivate var tabLayout = TabLayout()
-    fileprivate var contentLayout = ContentLayout()
+
+    // MARK: Configuration
 
     open var defaultPageIndex = 0
     open var contentViews: (() -> [UIView]) = { [] }
     open var tabViews: (() -> [UIView]) = { [] }
-    private var tabWidth: ((Int) -> CGFloat) = { _ in 0 }
     open var pagingEnabled: Bool = true {
         didSet {
             contentScrollView.isPagingEnabled = pagingEnabled
         }
     }
     
+    fileprivate var tabLayout = TabLayout()
+    fileprivate var contentLayout = ContentLayout()
+    fileprivate var tabWidth: ((Int) -> CGFloat) = { _ in 0 }
+    
     // MARK: Action
 
     open var movingTab: (Int) -> () = { _ in }
+    open var scrollingTab: (Int) -> () = { _ in }
 
     // MARK: - Initialize
 
@@ -113,14 +122,23 @@ open class ExpressTabView: UIView {
         }
     }
 
-    // MARK: - Configure
+    // MARK: -
+
+    open func changePage(to index: Int, animated: Bool) {
+        activedScrollView = tabScrollView
+        move(to: index, animated: animated)
+    }
+    
+    open func changePage(to index: Int, animated: Bool, completion: @escaping (() -> Void)) {
+        hasChangePageCompletion = true
+        changePageCompletion = completion
+        changePage(to: index, animated: animated)
+    }
     
     open func reloadData() {
         build()
         loadContents()
     }
-
-    // MARK: Build
 
     func build() {
         loadCache.maxLimit = tabViews().count
@@ -395,56 +413,58 @@ extension ExpressTabView: UIScrollViewDelegate {
 
     // scrolling animation stop without decelerating
     open func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-        // TODO3: scrollViewDidEndDragging
-//        if (!decelerate) {
-//            moveToIndex(currentPageIndex(), animated: true)
-//        }
+        guard decelerate else {
+            return
+        }
+        move(to: currentPageIndex(), animated: true)
     }
     
     // scrolling animation stop programmatically
     open func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
-        // TODO3: scrollViewDidEndScrollingAnimation
-//        if (isWaitingForPageChangedCallback) {
-//            isWaitingForPageChangedCallback = false
-//            pageChangedCallback?()
-//        }
+        guard hasChangePageCompletion else {
+            return
+        }
+        hasChangePageCompletion = false
+        changePageCompletion?()
     }
     
     // scrolling
     open func scrollViewDidScroll(_ scrollView: UIScrollView) {
         // TODO3: scrollViewDidScroll
-//        let currentIndex = currentPageIndex()
-//
-//        if (scrollView == activedScrollView) {
-//            let speed = self.frame.width / tabViewWidth(currentIndex)
-//            let halfWidth = self.frame.width / 2
-//
-//            var tabsWidth: CGFloat = 0
-//            var contentsWidth: CGFloat = 0
-//            for i in 0 ..< currentIndex {
-//                tabsWidth += tabViewWidth(i)
-//                contentsWidth += self.frame.width
-//            }
-//
-//            if (scrollView == tabScrollView) {
-//                contentScrollView.contentOffset.x = ((tabScrollView.contentOffset.x + halfWidth - tabsWidth) * speed) + contentsWidth - halfWidth
-//            }
-//
-//            if (scrollView == contentScrollView) {
-//                tabScrollView.contentOffset.x = ((contentScrollView.contentOffset.x + halfWidth - contentsWidth) / speed) + tabsWidth - halfWidth
-//            }
+        let currentIndex = currentPageIndex()
+        if scrollView == activedScrollView {
+            let speed = frame.width / tabWidth(currentIndex)
+            let halfWidth = frame.width * 0.5
+            let total: (tabWidth: CGFloat, contentWidth: CGFloat) = (0 ..< currentIndex).reduce(
+                into: (CGFloat(0), CGFloat(0)),
+                { [weak self] total, idx in
+                    guard let strongSelf = self else {
+                        return
+                    }
+                    total.0 += strongSelf.tabWidth(idx)
+                    total.1 += strongSelf.frame.width
+            })
+            if scrollView == tabScrollView {
+                contentScrollView.contentOffset.x = ((tabScrollView.contentOffset.x + halfWidth - total.tabWidth) * speed)
+                    + total.contentWidth - halfWidth
+            }
+            if scrollView == contentScrollView {
+                tabScrollView.contentOffset.x = ((contentScrollView.contentOffset.x + halfWidth - total.contentWidth) / speed)
+                    + total.tabWidth - halfWidth
+            }
+            // TODO2: デザインの微調整？
 //            updateTabAppearance()
-//        }
-//
-//        if (isStarted && pageIndex != currentIndex) {
-//            // set index
-//            pageIndex = currentIndex
-//
-//            // lazy loading
-//            lazyLoadPages()
-//
-//            // callback
-//            delegate?.tabScrollView(self, didScrollPageTo: currentIndex)
-//        }
+        }
+        
+        if isStarted && indexCache.page != currentIndex {
+            // set index
+            indexCache.page = currentIndex
+            
+            // lazy loading
+            loadContents()
+            
+            // callback
+            scrollingTab(currentIndex)
+        }
     }
 }
