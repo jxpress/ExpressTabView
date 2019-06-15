@@ -22,6 +22,7 @@ open class ExpressTabView: UIView {
     
     fileprivate var cache = Cache()
     fileprivate var tabLayout = TabLayout()
+    fileprivate var contentLayout = ContentLayout()
     open var tabViews: (() -> [UIView]) = { [] }
     private var tabWidth: ((Int) -> CGFloat) = { _ in 0 }
     open var pagingEnabled: Bool = true {
@@ -73,6 +74,10 @@ open class ExpressTabView: UIView {
     
     open override func layoutSubviews() {
         super.layoutSubviews()
+
+        // set custom attrs
+        tabScrollView.backgroundColor = tabLayout.backgroundColor
+        contentScrollView.backgroundColor = contentLayout.backgroundColor
     }
 
     // MARK: - Configure
@@ -197,6 +202,11 @@ extension ExpressTabView {
     
     struct TabLayout {
         var height: CGFloat = 0
+        var backgroundColor: UIColor = .white
+    }
+    
+    struct ContentLayout {
+        var backgroundColor: UIColor = .white
     }
 }
 
