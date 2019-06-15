@@ -17,13 +17,18 @@ open class ExpressTabView: UIView {
     
     fileprivate var tabScrollView: UIScrollView!
     fileprivate var contentScrollView: UIScrollView!
+    fileprivate var isStarted = false
     
     // MARK: Configuration
     
     fileprivate var pageCache = PageCache()
     fileprivate var loadCache = LoadCache()
+    fileprivate var indexCache = IndexCache()
     fileprivate var tabLayout = TabLayout()
     fileprivate var contentLayout = ContentLayout()
+
+    open var defaultPageIndex = 0
+    open var contentViews: (() -> [UIView]) = { [] }
     open var tabViews: (() -> [UIView]) = { [] }
     private var tabWidth: ((Int) -> CGFloat) = { _ in 0 }
     open var pagingEnabled: Bool = true {
@@ -76,6 +81,12 @@ open class ExpressTabView: UIView {
     open override func layoutSubviews() {
         super.layoutSubviews()
 
+        // reset status and stop scrolling immediately
+        if isStarted {
+            isStarted = false
+            stopScrolling()
+        }
+
         // set custom attrs
         tabScrollView.backgroundColor = tabLayout.backgroundColor
         contentScrollView.backgroundColor = contentLayout.backgroundColor
@@ -90,10 +101,9 @@ open class ExpressTabView: UIView {
         DispatchQueue.main.async {
             // first time set defaule pageIndex
             // TODO3: 開始状態の調査
-            // TODO3: pageIndexの正体調査
-//            self.initWithPageIndex(self.pageIndex ?? self.defaultPage)
-//            self.isStarted = true
-            
+            self.switchPage(with: self.indexCache.page ?? self.defaultPageIndex)
+            self.isStarted = true
+
             // load pages
             self.loadContents()
         }
@@ -190,25 +200,23 @@ open class ExpressTabView: UIView {
             return
         }
         let offset = 1
+        let leftBoundIndex = indexCache.page - offset > 0 ? indexCache.page - offset : 0
+        let rightBoundIndex = indexCache.page + offset < loadCache.maxLimit ? indexCache.page + offset : loadCache.maxLimit - 1
 
-        // WIP:
-//        let leftBoundIndex = pageIndex - offset > 0 ? pageIndex - offset : 0
-//        let rightBoundIndex = pageIndex + offset < cacheCount ? pageIndex + offset : cacheCount - 1
-//
-//        var currentContentWidth: CGFloat = 0.0
-//        for i in 0 ..< cacheCount {
-//            let width = frame.width
-//            if (i >= leftBoundIndex && i <= rightBoundIndex) {
-//                let pageFrame = CGRect(
-//                    x: currentContentWidth,
-//                    y: 0,
-//                    width: width,
-//                    height: contentScrollView.frame.size.height)
-//                insertPageAtIndex(i, frame: pageFrame)
-//            }
-//            currentContentWidth += width
-//        }
-//        contentScrollView.contentSize = CGSize(width: currentContentWidth, height: contentScrollView.frame.height)
+        var currentContentWidth: CGFloat = 0.0
+        for i in 0 ..< loadCache.maxLimit {
+            let width = frame.width
+            if (i >= leftBoundIndex && i <= rightBoundIndex) {
+                let pageFrame = CGRect(
+                    x: currentContentWidth,
+                    y: 0,
+                    width: width,
+                    height: contentScrollView.frame.size.height)
+                insertPage(at: i, frame: pageFrame)
+            }
+            currentContentWidth += width
+        }
+        contentScrollView.contentSize = CGSize(width: currentContentWidth, height: contentScrollView.frame.height)
         
         // remove older caches
         while (pageCache.sourceQueue.count > loadCache.preloadLimit()) {
@@ -216,6 +224,52 @@ open class ExpressTabView: UIView {
                 view.removeFromSuperview()
             }
         }
+    }
+
+    // MARK: Private
+
+    fileprivate func insertPage(at index: Int, frame: CGRect) {
+        if (pageCache.sourceQueue[index] == nil) {
+            let contents = contentViews()
+            guard contents.indices.contains(index) else {
+                return
+            }
+            let page = contents[index]
+            page.frame = frame
+            pageCache.sourceQueue[index] = page
+            contentScrollView.addSubview(page)
+        } else {
+            pageCache.sourceQueue.awake(index)
+        }
+    }
+
+    fileprivate func stopScrolling() {
+        tabScrollView.setContentOffset(tabScrollView.contentOffset, animated: false)
+        contentScrollView.setContentOffset(contentScrollView.contentOffset, animated: false)
+    }
+
+    fileprivate func switchPage(with index: Int) {
+        // set pageIndex
+        indexCache.switch(with: index)
+        
+        // init UI
+        guard loadCache.maxLimit > 0 else {
+            return
+        }
+
+        // WIP:
+        var tabOffsetX = 0 as CGFloat
+        var contentOffsetX = 0 as CGFloat
+        for idx in 0 ..< index {
+            tabOffsetX += tabWidth(idx)
+            contentOffsetX += frame.width
+        }
+        // set default position of tabs and contents
+        tabScrollView.contentOffset = CGPoint(x: tabOffsetX - (frame.width - tabWidth(index)) / 2,
+                                              y: tabScrollView.contentOffset.y)
+        contentScrollView.contentOffset = CGPoint(x: contentOffsetX, y: contentScrollView.contentOffset.y)
+        // TODO2: styleの更新をしてそう、あとで対応
+//        updateTabAppearance(animated: false)
     }
 }
 
@@ -250,6 +304,14 @@ extension ExpressTabView {
         }
     }
 
+    struct IndexCache {
+        
+        var page: Int!
+        
+        /// show / tab tap
+        var lastMarkPage: Int?
+    }
+
     // MARK: Layout
     
     struct TabLayout {
@@ -267,6 +329,14 @@ extension ExpressTabView.PageCache {
     mutating func removeAll() {
         source.removeAll()
         sourceQueue.removeAll()
+    }
+}
+
+extension ExpressTabView.IndexCache {
+
+    mutating func `switch`(with index: Int) {
+        page = index
+        lastMarkPage = page
     }
 }
 
