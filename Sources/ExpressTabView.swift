@@ -10,29 +10,29 @@ import Foundation
 import UIKit
 
 open class ExpressTabView: UIView {
-
+    
     // MARK: - Properties
-
+    
     // MARK: Views
     
     fileprivate var tabScrollView: UIScrollView!
     fileprivate var contentScrollView: UIScrollView!
-
+    
     // MARK: State
-
+    
     fileprivate var activedScrollView: UIScrollView?
     fileprivate var isStarted = false
     fileprivate var hasChangePageCompletion = false
     fileprivate var changePageCompletion: (() -> Void)?
-
+    
     // MARK: Cache
     
-    fileprivate var pageCache = PageCache()
-    fileprivate var loadCache = LoadCache()
+    var pageCache = PageCache()
+    var loadCache = LoadCache()
     fileprivate var indexCache = IndexCache()
-
+    
     // MARK: Configuration
-
+    
     open var defaultPageIndex = 0
     open var contentViews: (() -> [UIView]) = { [] }
     open var tabViews: (() -> [UIView]) = { [] }
@@ -42,17 +42,17 @@ open class ExpressTabView: UIView {
         }
     }
     
-    fileprivate var tabLayout = TabLayout()
-    fileprivate var contentLayout = ContentLayout()
+    open var tabLayout = TabLayout()
+    open var contentLayout = ContentLayout()
     fileprivate var tabWidth: ((Int) -> CGFloat) = { _ in 0 }
     
     // MARK: Action
-
+    
     open var movingTab: (Int) -> () = { _ in }
     open var scrollingTab: (Int) -> () = { _ in }
-
+    
     // MARK: - Initialize
-
+    
     required public init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
         initialize()
@@ -68,7 +68,7 @@ open class ExpressTabView: UIView {
         tabWidth = { [weak self] idx in
             self?.tabViews()[idx].frame.width ?? 0
         }
-
+        
         // init views
         tabScrollView = UIScrollView()
         contentScrollView = UIScrollView()
@@ -89,18 +89,18 @@ open class ExpressTabView: UIView {
         contentScrollView.showsVerticalScrollIndicator = false
         contentScrollView.delegate = self
     }
-
+    
     // MARK: - Layout
     
     open override func layoutSubviews() {
         super.layoutSubviews()
-
+        
         // reset status and stop scrolling immediately
         if isStarted {
             isStarted = false
             stopScrolling()
         }
-
+        
         // set custom attrs
         tabScrollView.backgroundColor = tabLayout.backgroundColor
         contentScrollView.backgroundColor = contentLayout.backgroundColor
@@ -110,20 +110,20 @@ open class ExpressTabView: UIView {
         
         // first time setup pages
         build()
-
+        
         // async necessarily
         DispatchQueue.main.async {
             // first time set defaule pageIndex
             self.switchPage(with: self.indexCache.page ?? self.defaultPageIndex)
             self.isStarted = true
-
+            
             // load pages
             self.loadContents()
         }
     }
-
+    
     // MARK: -
-
+    
     open func changePage(to index: Int, animated: Bool) {
         activedScrollView = tabScrollView
         move(to: index, animated: animated)
@@ -139,7 +139,7 @@ open class ExpressTabView: UIView {
         build()
         loadContents()
     }
-
+    
     func build() {
         loadCache.maxLimit = tabViews().count
         pageCache.removeAll()
@@ -158,7 +158,7 @@ open class ExpressTabView: UIView {
                                                    height: contentHeight))
         }
     }
-
+    
     func buildTabViews() -> (source: [Int : UIView], height: CGFloat) {
         return (0 ..< loadCache.maxLimit)
             .reduce(into: ([Int : UIView](), CGFloat(0)), { [weak self] source, idx in
@@ -171,7 +171,7 @@ open class ExpressTabView: UIView {
                 source.1 = max(strongSelf.tabLayout.height, tabView.frame.height)
             })
     }
-
+    
     func configureTabViews(completion: (CGFloat) -> Void) {
         var reducedTabWidth: CGFloat = 0
         for idx in 0 ..< loadCache.maxLimit {
@@ -185,22 +185,20 @@ open class ExpressTabView: UIView {
                 // bind event
                 tabView.tag = idx
                 tabView.isUserInteractionEnabled = true
-                // TODO3: ExpressTabView専用のメソッドを指定するように置換する
-//                tabView.addGestureRecognizer(UITapGestureRecognizer(
-//                    target: self, action: #selector(ACTabScrollView.tabViewDidClick(_:))))
+                tabView.addGestureRecognizer(UITapGestureRecognizer(
+                    target: self, action: #selector(ExpressTabView.tabViewDidClick(_:))))
                 tabScrollView.addSubview(tabView)
             }
             reducedTabWidth += tabWidth(idx)
         }
         completion(reducedTabWidth)
     }
-
+    
     func configureScrollViews(with contentSize: CGSize) {
         // reset the fixed size of tab section
         tabScrollView.frame = CGRect(x: 0, y: 0, width: frame.width, height: tabLayout.height)
-        // TODO3: 正しいメソッドを紐づける
-//        tabScrollView.addGestureRecognizer(UITapGestureRecognizer(
-//            target: self, action: #selector(ACTabScrollView.tabSectionScrollViewDidClick(_:))))
+        tabScrollView.addGestureRecognizer(UITapGestureRecognizer(
+            target: self, action: #selector(ExpressTabView.tabSectionScrollViewDidClick(_:))))
         tabScrollView.contentInset = UIEdgeInsets(
             top: 0,
             left: (frame.width / 2) - (tabWidth(0) / 2),
@@ -209,12 +207,12 @@ open class ExpressTabView: UIView {
         tabScrollView.contentSize = CGSize(width: contentSize.width, height: tabLayout.height)
         // reset the fixed size of content section
         contentScrollView.frame = CGRect(x: 0, y: tabLayout.height, width: frame.width, height: contentSize.height)
-
+        
         // TODO1: 扱いをどうするか考える
         // reset the origin of arrow view
 //        arrowView.frame.origin = CGPoint(x: (self.frame.width - arrowView.frame.width) / 2, y: tabSectionHeight)
     }
-
+    
     fileprivate func move(to index: Int, animated: Bool) {
         guard 0 <= index, index < loadCache.maxLimit else {
             return
@@ -231,14 +229,26 @@ open class ExpressTabView: UIView {
         }
         if (indexCache.lastMarkPage != index) {
             indexCache.lastMarkPage = index
-
+            
             // callback
             movingTab(index)
         }
     }
-
+    
+    // MARK: - Tab Action
+    
+    @objc func tabViewDidClick(_ recognizer: UITapGestureRecognizer) {
+        activedScrollView = tabScrollView
+        move(to: recognizer.view!.tag, animated: true)
+    }
+    
+    @objc func tabSectionScrollViewDidClick(_ recognizer: UITapGestureRecognizer) {
+        activedScrollView = tabScrollView
+        move(to: indexCache.page, animated: true)
+    }
+    
     // MARK: Load
-
+    
     func loadContents() {
         guard tabViews().count > 0 else {
             return
@@ -246,7 +256,7 @@ open class ExpressTabView: UIView {
         let offset = 1
         let leftBoundIndex = indexCache.page - offset > 0 ? indexCache.page - offset : 0
         let rightBoundIndex = indexCache.page + offset < loadCache.maxLimit ? indexCache.page + offset : loadCache.maxLimit - 1
-
+        
         var currentContentWidth: CGFloat = 0.0
         for i in 0 ..< loadCache.maxLimit {
             let width = frame.width
@@ -269,9 +279,9 @@ open class ExpressTabView: UIView {
             }
         }
     }
-
+    
     // MARK: Private
-
+    
     fileprivate func currentPageIndex() -> Int {
         let width = frame.width
         let currentPageIndex = Int((contentScrollView.contentOffset.x + (0.5 * width)) / width)
@@ -283,7 +293,7 @@ open class ExpressTabView: UIView {
         }
         return currentPageIndex
     }
-
+    
     fileprivate func insertPage(at index: Int, frame: CGRect) {
         if (pageCache.sourceQueue[index] == nil) {
             let contents = contentViews()
@@ -298,12 +308,12 @@ open class ExpressTabView: UIView {
             pageCache.sourceQueue.awake(index)
         }
     }
-
+    
     fileprivate func stopScrolling() {
         tabScrollView.setContentOffset(tabScrollView.contentOffset, animated: false)
         contentScrollView.setContentOffset(contentScrollView.contentOffset, animated: false)
     }
-
+    
     fileprivate func switchPage(with index: Int) {
         // set pageIndex
         indexCache.switch(with: index)
@@ -312,7 +322,7 @@ open class ExpressTabView: UIView {
         guard loadCache.maxLimit > 0 else {
             return
         }
-
+        
         // WIP:
         var tabOffsetX = 0 as CGFloat
         var contentOffsetX = 0 as CGFloat
@@ -331,24 +341,24 @@ open class ExpressTabView: UIView {
 
 // MARK: - ExpressTabView Extensions
 
-extension ExpressTabView {
-
+public extension ExpressTabView {
+    
     // MARK: Cache
-
-    struct PageCache {
+    
+    public struct PageCache {
         var source = [Int: UIView]()
         var sourceQueue = CacheQueue<Int, UIView>()
     }
     
-    struct LoadCache {
-
+    public struct LoadCache {
+        
         static var minimum: Int {
             return 3
         }
-
+        
         var maxLimit = 0
         var preload = LoadCache.minimum
-
+        
         func preloadLimit() -> Int {
             guard preload > LoadCache.minimum else {
                 return LoadCache.minimum
@@ -359,29 +369,29 @@ extension ExpressTabView {
             return preload
         }
     }
-
-    struct IndexCache {
+    
+    public struct IndexCache {
         
         var page: Int!
         
         /// show / tab tap
         var lastMarkPage: Int?
     }
-
+    
     // MARK: Layout
     
-    struct TabLayout {
+    public struct TabLayout {
         var height: CGFloat = 0
         var backgroundColor: UIColor = .white
     }
     
-    struct ContentLayout {
+    public struct ContentLayout {
         var backgroundColor: UIColor = .white
     }
 }
 
 extension ExpressTabView.PageCache {
-
+    
     mutating func removeAll() {
         source.removeAll()
         sourceQueue.removeAll()
@@ -389,7 +399,7 @@ extension ExpressTabView.PageCache {
 }
 
 extension ExpressTabView.IndexCache {
-
+    
     mutating func `switch`(with index: Int) {
         page = index
         lastMarkPage = page
@@ -397,7 +407,7 @@ extension ExpressTabView.IndexCache {
 }
 
 extension ExpressTabView: UIScrollViewDelegate {
-
+    
     // scrolling animation begin by dragging
     open func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
         // stop current scrolling before start another scrolling
@@ -410,13 +420,12 @@ extension ExpressTabView: UIScrollViewDelegate {
     open func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
         move(to: currentPageIndex(), animated: true)
     }
-
+    
     // scrolling animation stop without decelerating
     open func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-        guard decelerate else {
-            return
+        if !decelerate {
+            move(to: currentPageIndex(), animated: true)
         }
-        move(to: currentPageIndex(), animated: true)
     }
     
     // scrolling animation stop programmatically
