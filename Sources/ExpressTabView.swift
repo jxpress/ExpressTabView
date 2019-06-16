@@ -15,21 +15,21 @@ open class ExpressTabView: UIView {
     
     // MARK: Views
     
-    fileprivate var tabScrollView: UIScrollView!
-    fileprivate var contentScrollView: UIScrollView!
+    var tabScrollView: UIScrollView!
+    var contentScrollView: UIScrollView!
     
     // MARK: State
     
-    fileprivate var activedScrollView: UIScrollView?
-    fileprivate var isStarted = false
-    fileprivate var hasChangePageCompletion = false
-    fileprivate var changePageCompletion: (() -> Void)?
+    var isStarted = false
+    var activedScrollView: UIScrollView?
+    var hasChangePageCompletion = false
+    var changePageCompletion: (() -> Void)?
     
     // MARK: Cache
     
     var pageCache = PageCache()
     var loadCache = LoadCache()
-    fileprivate var indexCache = IndexCache()
+    var indexCache = IndexCache()
     
     // MARK: Configuration
     
@@ -92,9 +92,7 @@ open class ExpressTabView: UIView {
     
     // MARK: - Layout
     
-    open override func layoutSubviews() {
-        super.layoutSubviews()
-        
+    func bootsequence(completion: @escaping () -> Void) {
         // reset status and stop scrolling immediately
         if isStarted {
             isStarted = false
@@ -119,6 +117,15 @@ open class ExpressTabView: UIView {
             
             // load pages
             self.loadContents()
+            
+            completion()
+        }
+    }
+    
+    open override func layoutSubviews() {
+        super.layoutSubviews()
+        bootsequence {
+            
         }
     }
     
