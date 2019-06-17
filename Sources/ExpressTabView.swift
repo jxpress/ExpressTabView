@@ -41,7 +41,8 @@ open class ExpressTabView: UIView {
             contentScrollView.isPagingEnabled = pagingEnabled
         }
     }
-    
+    open var tabScrollInterlocked: Bool = false
+
     open var tabLayout = TabLayout()
     open var contentLayout = ContentLayout()
     fileprivate var tabWidth: ((Int) -> CGFloat) = { _ in 0 }
@@ -453,7 +454,7 @@ extension ExpressTabView: UIScrollViewDelegate {
                     total.0 += strongSelf.tabWidth(idx)
                     total.1 += strongSelf.frame.width
             })
-            if scrollView == tabScrollView {
+            if scrollView == tabScrollView, tabScrollInterlocked {
                 contentScrollView.contentOffset.x = ((tabScrollView.contentOffset.x + halfWidth - total.tabWidth) * speed)
                     + total.contentWidth - halfWidth
             }
